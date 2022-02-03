@@ -54,10 +54,8 @@ def open_mp3file(mp3):
     sleep(1)
     mouse_click(61, 122)
     # change chinese keyboard into english
-    sleep(1)
-    change_language("EN")
     # input the path of mp3 file
-    sleep(0.5)
+    sleep(2)
     for i in mp3:
         pyautogui.press(i)
 
@@ -94,19 +92,19 @@ def save_file(imageName):
     sleep(1)
     mouse_click(755, 591)
     if os.path.exists(path + "/" + imageName):
-        sleep(1)
+        sleep(5)
         mouse_click(1044, 593)
         sleep(0.5)
         mouse_click(1059, 605)
     else:
         # click OK
-        sleep(1)
+        sleep(5)
         mouse_click(1063, 616)
         sleep(1)
 
 
 def close_software():
-    sleep(1)
+    sleep(5)
     mouse_click(1888, 9)
     sleep(2)
     mouse_click(983, 595)
@@ -153,6 +151,25 @@ def automatic_manipulation(mp3):
     close_software()
 
 
+def read_all_file(record_files):
+    if os.path.isdir(record_files):
+        files = os.listdir(record_files)
+        for file in files:
+            record_path = record_files + "/" + file
+            if os.path.isdir(record_path):
+                read_all_file(record_path)
+            else:
+                # print(record_path)
+                list = file.split('.')
+                if list[len(list) - 1] == "pk":
+                    continue
+                else:
+                    automatic_manipulation(record_path)
+    else:
+        # print(record_files)
+        automatic_manipulation(record_files)
+
+
 if __name__ == "__main__":
     # read property file
     config = ConfigParser()
@@ -160,16 +177,11 @@ if __name__ == "__main__":
     # get the path of mp3 file
     # mp3 = config.get("mp3files", "mp3file1")
     mp3files = config.options("mp3files")
+    sleep(1)
+    change_language("EN")
     for i in mp3files:
         record_files = config.get("mp3files", i)
-        if os.path.isdir(record_files):
-            files = os.listdir(record_files)
-            for file in files:
-                record_path = record_files + "/" + file
-                # print(record_path)
-                automatic_manipulation(record_path)
-        else:
-            automatic_manipulation(record_files)
+        read_all_file(record_files)
 
     # while True:
     #     sleep(3)
