@@ -4,6 +4,8 @@ from time import sleep
 
 import librosa
 import numpy as np
+import timbral_models
+from timbral_models import timbral_sharpness
 
 
 def feature_extract(records, timbral_models=None):
@@ -11,17 +13,23 @@ def feature_extract(records, timbral_models=None):
     rmse = np.mean(librosa.feature.rms(y=y))
     zcr = np.mean(librosa.feature.zero_crossing_rate(y))
     spec_cent = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
-    mfcc = librosa.feature.mfcc(y=y, sr=sr)
+    mfcc = librosa.feature.mfcc(y=y)
     spec_flat = librosa.feature.spectral_flatness(y=y)
     f0, voiced_flag, voiced_probs = librosa.pyin(y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'))
 
-    # y.sr=librosa.load(fn,res_type='kaiser_fast')
-    # stft=librosa.stft(y,n_fft=n_fft,)
-    # sharpness=timbral_models.timbral_sharpness(fn)
+    y, sr = librosa.load(records, res_type='kaiser_fast')
+    stft = librosa.stft(y)
+    power_spectrum = np.square(np.abs(stft))
+    bins = librosa.fft_frequencies(sr=sr)
+    # loudness = librosa.perceptual_weighting(power_spectrum, bins)
+    # loudness = librosa.db_to_amplitude(loudness)
+    # loudness = np.log(np.mean(loudness, axis=0) + 1e-5)
+
+    # sharpness =timbral_sharpness(records)
 
     string = "file name:" + records + "     均方根能量:" + str(rmse) + "          过零率:" + str(zcr) + "           谱质心:" + str(
-        spec_cent) + "           频谱平坦度:" + str(mfcc) + "          频谱通量" + str(spec_flat) + "        基音频率:" + str(
-        f0) + "," + str(voiced_flag) + "," + str(voiced_probs)
+        spec_cent) + "           mfcc:" + str(mfcc) + "           频谱平坦度:" + str(spec_flat) + "        基音频率:" + str(
+        f0) + "," + str(voiced_flag) + "," + str(voiced_probs)+" "
     text_save(string)
 
 
@@ -46,7 +54,7 @@ def read_all_file(record_files):
 
 
 def text_save(data):
-    file = open("data.txt", 'a')
+    file = open("baby data.txt", 'a')
     data = data + "\n"
     file.write(data)
     file.close()
