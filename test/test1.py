@@ -20,11 +20,11 @@ from keras import layers
 import keras
 from keras.models import Sequential
 import warnings
+
 warnings.filterwarnings('ignore')
 
 
-
-def read_all_file(record_files,csv_file):
+def read_all_file(record_files):
     if os.path.isdir(record_files):
         files = os.listdir(record_files)
         for file in files:
@@ -37,14 +37,13 @@ def read_all_file(record_files,csv_file):
                 if list[len(list) - 1] == "pk":
                     continue
                 else:
-
-                    feature_extract(record_path,csv_file)
+                    feature_extract(record_path)
     else:
         # print(record_files)
-        feature_extract(record_files,csv_file)
+        feature_extract(record_files)
 
-def feature_extract(audio,csv_file):
 
+def feature_extract(audio):
     genres = 'blues classical country disco hiphop jazz metal pop reggae rock'.split()
     # for g in genres:
     if True:
@@ -68,16 +67,6 @@ def feature_extract(audio,csv_file):
             writer = csv.writer(csv_file)
             writer.writerow(to_append.split())
 
-# data = pd.read_csv('dataset.csv')
-# data.head()  # Dropping unneccesary columns
-# data = data.drop(['filename'], axis=1)  # Encoding the Labels
-# genre_list = data.iloc[:, -1]
-# encoder = LabelEncoder()
-# y = encoder.fit_transform(genre_list)  # Scaling the Feature columns
-# scaler = StandardScaler()
-# X = scaler.fit_transform(np.array(data.iloc[:, :-1], dtype=float))  # Dividing data into training and Testing set
-# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
 
 # model = Sequential()
 # model.add(layers.Dense(256, activation='relu', input_shape=(X_train.shape[1],)))
@@ -90,29 +79,50 @@ def feature_extract(audio,csv_file):
 
 
 if __name__ == "__main__":
-    # read property file
-    config = ConfigParser()
-    config.read('property.cfg')
-    # get the path of mp3 file
-    # mp3 = config.get("mp3files", "mp3file1")
-    mp3files = config.options("mp3files")
-    sleep(1)
-    print("file name       " + "均方根能量        " + "过零率         " + "谱质心          ", end="")
-    print("mfcc         " + "频谱平坦度          " + "频谱通量         " + "基音频率       ", end="")
-    print("响度          " + "尖锐度")
+    # # read property file
+    # config = ConfigParser()
+    # config.read('property.cfg')
+    # # get the path of mp3 file
+    # # mp3 = config.get("mp3files", "mp3file1")
+    # mp3files = config.options("mp3files")
+    # sleep(1)
+    # print("file name       " + "均方根能量        " + "过零率         " + "谱质心          ", end="")
+    # print("mfcc         " + "频谱平坦度          " + "频谱通量         " + "基音频率       ", end="")
+    # print("响度          " + "尖锐度")
+    #
+    # header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
+    # for i in range(1, 21):
+    #     header += f' mfcc{i}'
+    # header += ' label'
+    # header = header.split()
+    #
+    # csv_file = open('dataset.csv', 'w', newline='')
+    # with csv_file:
+    #     writer = csv.writer(csv_file)
+    #     writer.writerow(header)
+    #
+    #
+    # for i in mp3files:
+    #     record_files = config.get("mp3files", i)
+    #     read_all_file(record_files)
 
-    header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
-    for i in range(1, 21):
-        header += f' mfcc{i}'
-    header += ' label'
-    header = header.split()
+    data = pd.read_csv('dataset.csv')
+    data.head()  # Dropping unneccesary columns
+    data = data.drop(['filename'], axis=1)  # Encoding the Labels
+    genre_list = data.iloc[:, -1]
+    encoder = LabelEncoder()
+    y = encoder.fit_transform(genre_list)  # Scaling the Feature columns
+    scaler = StandardScaler()
+    X = scaler.fit_transform(np.array(data.iloc[:, :-1], dtype=float))  # Dividing data into training and Testing set
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-    csv_file = open('dataset.csv', 'w', newline='')
-    with csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(header)
+    model = Sequential()
+    model.add(layers.Dense(256, activation='relu', input_shape=(X_train.shape[1],)))
+    model.add(layers.Dense(128, activation='relu'))
+    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dense(10, activation='softmax'))
+    model.compile(optimizer='adam',
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
 
-
-    for i in mp3files:
-        record_files = config.get("mp3files", i)
-        read_all_file(record_files,csv_file)
+    classifier = model.fit(X_train, y_train, epochs=100, batch_size=128)
