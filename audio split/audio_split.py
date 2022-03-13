@@ -21,14 +21,16 @@
 import os
 import subprocess
 import shutil
+
+import librosa
 import soundfile as sf
-from audiosegment import AudioSegment
+from pydub import AudioSegment
 
 from acoustic_feature import VAD
 
-
 audio_path_raw = "./baby_snore/"  # 原始音频文件夹
 audio_path_wav = "./convert2wav/"  # 原始音频转换为.wav文件 文件夹
+audio_pure_wav = "./dropNoice/"  # 去除开始1秒后的wav
 save_path_split1 = "./detected_split1/"  # 第一次分割后音频保存目录
 save_path_split2 = "./detected_split2/"  # 第二次分割后音频保存目录
 save_path_duration = "./duration_limit/"  # 限制语音时长后保存目录
@@ -46,9 +48,16 @@ def save_wave_file(filename, wave_data, sampling_rate=16000, subtype="PCM_16"):
     sf.write(filename, wave_data, sampling_rate, subtype)
 
 
+def dropUnnecessary(each_file, relative_path):
+    sound = AudioSegment.from_wav(relative_path)
+    output = sound[7000:]
+    output.export("./dropNoice/" + relative_path.split("/")[2], format="wav")
+
+
 def audio_split(input_file_folder=audio_path_raw, output_file_folder=audio_path_wav,
                 save_chunks_file_folder=(save_path_split1, save_path_split2), audio_type="wav", frame_len=(400, 240),
-                min_interval=(20, 20), e_low_multifactor=(1.0, 0.5), zcr_multifactor=(0.8, 1.0)):
+                # 1.0 0.5;0.8 1.0
+                min_interval=(20, 20), e_low_multifactor=(1.0,0.5), zcr_multifactor=(0.8,1.0)):
     """
     音频转换与分割
     :param input_file_folder: 音频输入文件夹
@@ -70,20 +79,26 @@ def audio_split(input_file_folder=audio_path_raw, output_file_folder=audio_path_
     if os.path.exists(save_chunks_file_folder[1]):
         shutil.rmtree(save_chunks_file_folder[1])  # 先删除输出文件夹
     os.mkdir(save_chunks_file_folder[1])  # 重新创建
+    if os.path.exists(audio_pure_wav):
+        shutil.rmtree(audio_pure_wav)
+    os.mkdir(audio_pure_wav)
     for each_file in os.listdir(input_file_folder):  # 遍历原始音频文件
         audio_raw = os.path.join(input_file_folder, each_file)  # 原始音频文件相对路径
         audio_path = output_file_folder + each_file.split(".")[0] + "." + audio_type  # 转换后存储路径，文件名
         print(audio_raw)
         print(each_file + "音频数据处理中...")
+
         # 调用ffmpeg，将任意格式音频文件转换为.wav文件，pcm有符号16bit,1：单通道,16kHz，不显示打印信息
         subprocess.run("ffmpeg -loglevel quiet -y -i %s -acodec pcm_s16le -ac 1 -ar 16000 %s" % (audio_raw, audio_path))
+        dropUnnecessary(each_file, audio_path)
         print("----------{} STEP1: 总体端点检测，分割长音频----------".format(each_file))
-        vad = VAD(audio_path, frame_len=frame_len[0], min_interval=min_interval[0],
+        vad = VAD(audio_pure_wav + audio_path.split("/")[2], frame_len=frame_len[0], min_interval=min_interval[0],
                   e_low_multifactor=e_low_multifactor[0], zcr_multifactor=zcr_multifactor[0])  # 语音端点检测
-        #vad.plot()
+        vad.plot()
         print("共生成{}段语音".format(len(vad.wav_dat_split)))
         print("----------{} STEP2: 对分割后的音频再次进行端点检测----------".format(each_file))
         wave_num = 0
+        length = 0
         for index in range(len(vad.wav_dat_split)):
             file_name = save_chunks_file_folder[0] + each_file.split(".")[0] + \
                         "_%03d.%s" % (index, audio_type)  # 000_000-999_999.wav式命名
@@ -94,11 +109,17 @@ def audio_split(input_file_folder=audio_path_raw, output_file_folder=audio_path_
             for i in range(len(_vad.wav_dat_split)):  # 依次保存端点检测后语音文件中所有的有效语音段
                 if i == 0:  # 若仅分割成一段，直接保存
                     file_name = save_chunks_file_folder[1] + each_file.split(".")[0] + \
-                        "_%03d.%s" % (index, audio_type)  # 000_000-999_999.wav式命名
+                                "_%03d.%s" % (index, audio_type)  # 000_000-999_999.wav式命名
+
                 else:  # 否则按名_序号保存
                     file_name = save_chunks_file_folder[1] + each_file.split(".")[0] + \
-                        "_%03d_%d.%s" % (index, i, audio_type)  # 000_000_0-999_999_9.wav式命名
+                                "_%03d_%d.%s" % (index, i, audio_type)  # 000_000_0-999_999_9.wav式命名
                 save_wave_file(file_name, _vad.wav_dat_split[i])
+                temp = length + AudioSegment.from_wav(file_name).duration_seconds
+                os.rename(os.path.abspath(file_name), save_path_split2 + ((
+                            file_name.split(".")[1] + "_begin_" + str(length) + "_end_" + str(temp) + "." +
+                            file_name.split(".")[2]).split("/")[2]))
+                length = temp
         print("最终共{}段语音保存完毕".format(wave_num))
 
 
@@ -127,7 +148,14 @@ def audio_duration_limit(input_file_folder=save_path_split2, output_file_folder=
             audio_duration_original = len(sf.read(_input)[0]) / sf.read(_input)[1] * 1000  # 原始音频时长
             i = 0  # 每次加减速编号
             while len(sf.read(_input)[0]) / sf.read(_input)[1] * 1000 > max_dura:  # 当输入音频超过max_dura ms时
-                _output = output_file_folder + each_file.split(".")[0] + "_%03d.%s" % (i, each_file.split(".")[1])
+                y = each_file.split(".")
+                y.pop(y.__len__() - 1)
+                file = ""
+                for j in y:
+                    file += j + "."
+
+                file_final = file[:file.__len__() - 1]
+                _output = output_file_folder + file_final + "_%03d.%s" % (i, ".wav")
                 # 每次1.2倍速度加快音频，不显示打印信息
                 subprocess.run("ffmpeg -loglevel quiet -y -i %s -af atempo=%s %s" % (_input, 1.2, _output))
                 os.remove(_input)  # 删除原音频文件
@@ -155,6 +183,7 @@ def audio_duration_limit(input_file_folder=save_path_split2, output_file_folder=
 if __name__ == "__main__":
     audio_split(input_file_folder=audio_path_raw, output_file_folder=audio_path_wav,
                 save_chunks_file_folder=(save_path_split1, save_path_split2), audio_type="wav", frame_len=(400, 240),
-                min_interval=(15, 15), e_low_multifactor=(1.0, 0.5), zcr_multifactor=(0.8, 0.8))
+                min_interval=(15, 15), e_low_multifactor=(1.0,0.5), zcr_multifactor=(0.4,0.4))
+    # 0.8 0.8
     print("----------STEP3: 限制最终的音频时长为0ms ~ 1500ms----------")
     audio_duration_limit(input_file_folder=save_path_split2, min_dura=0, max_dura=1500)
