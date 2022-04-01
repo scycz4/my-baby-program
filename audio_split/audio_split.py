@@ -187,3 +187,14 @@ if __name__ == "__main__":
     # 0.8 0.8
     print("----------STEP3: 限制最终的音频时长为0ms ~ 1500ms----------")
     audio_duration_limit(input_file_folder=save_path_split2, min_dura=0, max_dura=1500)
+
+
+def custom_audio_split(input_file_folder,output_file_folder,save_chunks_file_folder,audio_type,fram_len,
+                       min_interval,e_low_multifactor,zcr_multifactor):
+    audio_split(input_file_folder,output_file_folder,save_chunks_file_folder,audio_type,fram_len,
+                       min_interval,e_low_multifactor,zcr_multifactor)
+    print("----------STEP3: 限制最终的音频时长为0ms ~ 1500ms----------")
+    audio_duration_limit(input_file_folder=save_chunks_file_folder[1], min_dura=0, max_dura=1500)
+
+
+

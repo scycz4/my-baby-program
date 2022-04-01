@@ -44,7 +44,6 @@ def read_all_file(record_files):
 
 
 def feature_extract(audio):
-    genres = 'blues classical country disco hiphop jazz metal pop reggae rock'.split()
     # for g in genres:
     if True:
         # for filename in os.listdir(f'./drive/My Drive/genres/{g}'):
@@ -68,43 +67,29 @@ def feature_extract(audio):
             writer.writerow(to_append.split())
 
 
-# model = Sequential()
-# model.add(layers.Dense(256, activation='relu', input_shape=(X_train.shape[1],)))
-# model.add(layers.Dense(128, activation='relu'))
-# model.add(layers.Dense(64, activation='relu'))
-# model.add(layers.Dense(10, activation='softmax'))
-# model.compile(optimizer='adam',
-#               loss='sparse_categorical_crossentropy',
-#               metrics=['accuracy'])
-
-
 if __name__ == "__main__":
-    # # read property file
-    # config = ConfigParser()
-    # config.read('property.cfg')
-    # # get the path of mp3 file
-    # # mp3 = config.get("mp3files", "mp3file1")
-    # mp3files = config.options("mp3files")
-    # sleep(1)
-    # print("file name       " + "均方根能量        " + "过零率         " + "谱质心          ", end="")
-    # print("mfcc         " + "频谱平坦度          " + "频谱通量         " + "基音频率       ", end="")
-    # print("响度          " + "尖锐度")
-    #
-    # header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
-    # for i in range(1, 21):
-    #     header += f' mfcc{i}'
-    # header += ' label'
-    # header = header.split()
-    #
-    # csv_file = open('dataset.csv', 'w', newline='')
-    # with csv_file:
-    #     writer = csv.writer(csv_file)
-    #     writer.writerow(header)
-    #
-    #
-    # for i in mp3files:
-    #     record_files = config.get("mp3files", i)
-    #     read_all_file(record_files)
+    # read property file
+    config = ConfigParser()
+    config.read('property.cfg')
+    # get the path of mp3 file
+    # mp3 = config.get("mp3files", "mp3file1")
+    mp3files = config.options("mp3files")
+    sleep(1)
+
+    header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
+    for i in range(1, 21):
+        header += f' mfcc{i}'
+    header += ' label'
+    header = header.split()
+
+    csv_file = open('dataset.csv', 'w', newline='')
+    with csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(header)
+
+    for i in mp3files:
+        record_files = config.get("mp3files", i)
+        read_all_file(record_files)
 
     data = pd.read_csv('dataset.csv')
     data.head()  # Dropping unneccesary columns
@@ -112,8 +97,10 @@ if __name__ == "__main__":
     genre_list = data.iloc[:, -1]
     encoder = LabelEncoder()
     y = encoder.fit_transform(genre_list)  # Scaling the Feature columns
+    print(y)
     scaler = StandardScaler()
     X = scaler.fit_transform(np.array(data.iloc[:, :-1], dtype=float))  # Dividing data into training and Testing set
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
     model = Sequential()
@@ -126,3 +113,43 @@ if __name__ == "__main__":
                   metrics=['accuracy'])
 
     classifier = model.fit(X_train, y_train, epochs=100, batch_size=128)
+
+
+def model_create(property, option):
+    # read property file
+    config = ConfigParser()
+    config.read(property)
+    # get the path of mp3 file
+    # mp3 = config.get("mp3files", "mp3file1")
+    mp3files = config.options(option)
+    sleep(1)
+    print("file name       " + "均方根能量        " + "过零率         " + "谱质心          ", end="")
+    print("mfcc         " + "频谱平坦度          " + "频谱通量         " + "基音频率       ", end="")
+    print("响度          " + "尖锐度")
+
+    header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
+    for i in range(1, 21):
+        header += f' mfcc{i}'
+    header += ' label'
+    header = header.split()
+
+    csv_file = open('dataset.csv', 'w', newline='', encoding='utf8', errors='ignore')
+    with csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(header)
+
+    for i in mp3files:
+        record_files = config.get(option, i)
+        read_all_file(record_files)
+
+    data = pd.read_csv('dataset.csv')
+    data.head()  # Dropping unneccesary columns
+    data = data.drop(['filename'], axis=1)  # Encoding the Labels
+    genre_list = data.iloc[:, -1]
+    encoder = LabelEncoder()
+    y = encoder.fit_transform(genre_list)  # Scaling the Feature columns
+    scaler = StandardScaler()
+    X = scaler.fit_transform(np.array(data.iloc[:, :-1], dtype=float))  # Dividing data into training and Testing set
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+    return X_train, X_test, y_train, y_test
