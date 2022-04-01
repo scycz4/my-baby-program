@@ -54,7 +54,7 @@ def dropUnnecessary(each_file, relative_path):
     output.export("./dropNoice/" + relative_path.split("/")[2], format="wav")
 
 
-def audio_split(input_file_folder=audio_path_raw, output_file_folder=audio_path_wav,
+def audio_split(input_file_folder=audio_path_raw, output_file_folder=audio_path_wav,audio_pure_wav=audio_pure_wav,
                 save_chunks_file_folder=(save_path_split1, save_path_split2), audio_type="wav", frame_len=(400, 240),
                 # 1.0 0.5;0.8 1.0
                 min_interval=(20, 20), e_low_multifactor=(1.0,0.5), zcr_multifactor=(0.8,1.0)):
@@ -189,12 +189,10 @@ if __name__ == "__main__":
     audio_duration_limit(input_file_folder=save_path_split2, min_dura=0, max_dura=1500)
 
 
-def custom_audio_split(input_file_folder,output_file_folder,save_chunks_file_folder,audio_type,fram_len,
-                       min_interval,e_low_multifactor,zcr_multifactor):
-    audio_split(input_file_folder,output_file_folder,save_chunks_file_folder,audio_type,fram_len,
-                       min_interval,e_low_multifactor,zcr_multifactor)
+def custom_audio_split(input_file_folder,output_file_folder,save_chunks_file_folder,audio_pure_wav,output_limitation):
+    audio_split(input_file_folder,output_file_folder,audio_pure_wav,save_chunks_file_folder)
     print("----------STEP3: 限制最终的音频时长为0ms ~ 1500ms----------")
-    audio_duration_limit(input_file_folder=save_chunks_file_folder[1], min_dura=0, max_dura=1500)
+    audio_duration_limit(input_file_folder=save_chunks_file_folder[1],output_file_folder=output_limitation, min_dura=0, max_dura=1500)
 
 
 

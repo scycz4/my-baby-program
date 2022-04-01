@@ -21,6 +21,8 @@ import keras
 from keras.models import Sequential
 import warnings
 
+global csv
+default_csv="dataset.csv"
 warnings.filterwarnings('ignore')
 
 
@@ -61,7 +63,7 @@ def feature_extract(audio):
         to_append = f'{song} {np.mean(chroma_stft)} {np.mean(rmse)} {np.mean(spec_cent)} {np.mean(spec_bw)} {np.mean(rolloff)} {np.mean(zcr)}'
         for e in mfcc:
             to_append += f' {np.mean(e)}'
-        csv_file = open('dataset.csv', 'a', newline='')
+        csv_file = open(default_csv, 'a', newline='')
         with csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(to_append.split())
@@ -82,7 +84,7 @@ if __name__ == "__main__":
     header += ' label'
     header = header.split()
 
-    csv_file = open('dataset.csv', 'w', newline='')
+    csv_file = open(default_csv, 'w', newline='')
     with csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(header)
@@ -91,7 +93,7 @@ if __name__ == "__main__":
         record_files = config.get("mp3files", i)
         read_all_file(record_files)
 
-    data = pd.read_csv('dataset.csv')
+    data = pd.read_csv(default_csv)
     data.head()  # Dropping unneccesary columns
     data = data.drop(['filename'], axis=1)  # Encoding the Labels
     genre_list = data.iloc[:, -1]
@@ -133,7 +135,7 @@ def model_create(property, option):
     header += ' label'
     header = header.split()
 
-    csv_file = open('dataset.csv', 'w', newline='', encoding='utf8', errors='ignore')
+    csv_file = open(default_csv, 'w', newline='', encoding='utf8', errors='ignore')
     with csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(header)
@@ -142,7 +144,7 @@ def model_create(property, option):
         record_files = config.get(option, i)
         read_all_file(record_files)
 
-    data = pd.read_csv('dataset.csv')
+    data = pd.read_csv(default_csv)
     data.head()  # Dropping unneccesary columns
     data = data.drop(['filename'], axis=1)  # Encoding the Labels
     genre_list = data.iloc[:, -1]
@@ -153,3 +155,32 @@ def model_create(property, option):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
     return X_train, X_test, y_train, y_test
+
+
+def own_data(record_files):
+    print("file name       " + "均方根能量        " + "过零率         " + "谱质心          ", end="")
+    print("mfcc         " + "频谱平坦度          " + "频谱通量         " + "基音频率       ", end="")
+    print("响度          " + "尖锐度")
+
+    global default_csv
+    default_csv="temp.csv"
+    header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
+    for i in range(1, 21):
+        header += f' mfcc{i}'
+    header += ' label'
+    header = header.split()
+
+    csv_file = open(default_csv, 'w', newline='', encoding='utf8', errors='ignore')
+    with csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(header)
+
+    read_all_file(record_files)
+
+    data = pd.read_csv(default_csv)
+    data.head()  # Dropping unneccesary columns
+    data = data.drop(['filename'], axis=1)  # Encoding the Labels
+    genre_list = data.iloc[:, -1]
+    scaler = StandardScaler()
+    X=np.array(data.iloc[:, :-1], dtype=float) # Dividing data into training and Testing set
+    return X
