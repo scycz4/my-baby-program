@@ -135,7 +135,7 @@ def model_create(property, option):
     header += ' label'
     header = header.split()
 
-    csv_file = open(default_csv, 'w', newline='', encoding='utf8', errors='ignore')
+    csv_file = open(default_csv, 'a', newline='')
     with csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(header)
@@ -149,38 +149,41 @@ def model_create(property, option):
     data = data.drop(['filename'], axis=1)  # Encoding the Labels
     genre_list = data.iloc[:, -1]
     encoder = LabelEncoder()
-    y = encoder.fit_transform(genre_list)  # Scaling the Feature columns
+    y = encoder.fit_transform(genre_list)  # Scaling the Feature
     scaler = StandardScaler()
     X = scaler.fit_transform(np.array(data.iloc[:, :-1], dtype=float))  # Dividing data into training and Testing set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    # return X
+    print(X)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.8)
+    print(X_train)
 
     return X_train, X_test, y_train, y_test
 
 
-def own_data(record_files):
-    print("file name       " + "均方根能量        " + "过零率         " + "谱质心          ", end="")
-    print("mfcc         " + "频谱平坦度          " + "频谱通量         " + "基音频率       ", end="")
-    print("响度          " + "尖锐度")
+
+def own_data(record_files,head):
 
     global default_csv
     default_csv="temp.csv"
-    header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
-    for i in range(1, 21):
-        header += f' mfcc{i}'
-    header += ' label'
-    header = header.split()
 
-    csv_file = open(default_csv, 'w', newline='', encoding='utf8', errors='ignore')
-    with csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(header)
+    if head==0:
+        header = 'filename chroma_stft rmse spectral_centroid spectral_bandwidth rolloff zero_crossing_rate'
+        for i in range(1, 21):
+            header += f' mfcc{i}'
+        header += ' label'
+        header = header.split()
+
+        csv_file = open(default_csv, 'w', newline='', encoding='utf8', errors='ignore')
+        with csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(header)
 
     read_all_file(record_files)
 
-    data = pd.read_csv(default_csv)
-    data.head()  # Dropping unneccesary columns
-    data = data.drop(['filename'], axis=1)  # Encoding the Labels
-    genre_list = data.iloc[:, -1]
-    scaler = StandardScaler()
-    X=np.array(data.iloc[:, :-1], dtype=float) # Dividing data into training and Testing set
-    return X
+    # data = pd.read_csv(default_csv)
+    # data.head()  # Dropping unneccesary columns
+    # data = data.drop(['filename'], axis=1)  # Encoding the Labels
+    # genre_list = data.iloc[:, -1]
+    # scaler = StandardScaler()
+    # X=np.array(data.iloc[:, :-1], dtype=float) # Dividing data into training and Testing set
+    # return X

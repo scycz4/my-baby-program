@@ -453,7 +453,7 @@ class RhythmFeatures:
         mag_likely[magnitudes < ts] = 0
         return pit_likely, mag_likely
 
-    def activity_detect(self, min_interval=15, e_low_multifactor=1.0, zcr_multifactor=1.0, pt=False,oneLoop=False):
+    def activity_detect(self, min_interval=15, e_low_multifactor=0.5, zcr_multifactor=1.0, pt=False, oneLoop=False):
         """
         利用短时能量，短时过零率，使用双门限法进行端点检测
         :param min_interval: 最小浊音间隔，默认15帧
@@ -467,8 +467,8 @@ class RhythmFeatures:
         zcr = self.zero_crossing_rate()
         energy_average = sum(ste) / len(ste)  # 求全部帧的短时能量均值
         energy_high = energy_average  # 能量均值的4分之一作为能量高阈值
-        # energy_low = (sum(ste[:5]) / 5 + energy_high / 3) * e_low_multifactor  # 前5帧能量均值+能量高阈值的5分之一作为能量低阈值
-        energy_low = energy_high
+        energy_low = (sum(ste[:5]) / 5 + energy_high / 5) * e_low_multifactor  # 前5帧能量均值+能量高阈值的5分之一作为能量低阈值
+        # energy_low = energy_high
         zcr_threshold = sum(zcr) / len(zcr) * zcr_multifactor  # 过零率均值*zcr_multfactor作为过零率阈值
 
         loop_flag = True
@@ -479,24 +479,24 @@ class RhythmFeatures:
             wave_detected = []  # 轻音扩充后的最终列表
             # 首先利用能量高阈值energy_high进行初步检测，得到语音段的浊音部分
             add_flag = True  # 加入voiced_sound列表标志位
-            for i in range(len(zcr)):  # 遍历短时能量数据
-                if len(voiced_sound) == 0 and add_flag and zcr[i] >= zcr_threshold:  # 第一次达到阈值
+            for i in range(len(ste)):  # 遍历短时能量数据
+                if len(voiced_sound) == 0 and add_flag and ste[i] >= energy_high:  # 第一次达到阈值
                     voiced_sound.append(i)  # 加入列表
                     add_flag = False  # 接下来禁止加入
-                if (not add_flag) and zcr[i] < zcr_threshold:  # 直到未达到阈值，此时该阶段为一段浊音语音
+                if (not add_flag) and ste[i] < energy_high:  # 直到未达到阈值，此时该阶段为一段浊音语音
                     if i - voiced_sound[-1] <= 2:  # 检测帧索引间隔，去掉间隔小于2的索引，判断该段为噪音
                         voiced_sound = voiced_sound[:-1]  # 该段不加入列表
                     else:  # 否则加入列表
                         voiced_sound.append(i)
                     add_flag = True  # 继续寻找下一段浊音（下一个阈值）
                 # 再次达到阈值，判断两个浊音间隔是否大于最小浊音间隔
-                elif add_flag and zcr[i] >= zcr_threshold and i - voiced_sound[-1] > min_interval:
+                elif add_flag and ste[i] >= energy_high and i - voiced_sound[-1] > min_interval:
                     voiced_sound.append(i)  # 大于，则分段，加入列表
                     add_flag = False  # 接下来禁止加入
-                elif add_flag and zcr[i] >= zcr_threshold and i - voiced_sound[-1] <= min_interval:
+                elif add_flag and ste[i] >= energy_high and i - voiced_sound[-1] <= min_interval:
                     voiced_sound = voiced_sound[:-1]  # 小于，则不分段，该段不加入列表
                     add_flag = False  # 接下来禁止加入
-                if (i == len(zcr) - 1) and (len(voiced_sound) % 2 == 1):  # 当到达最后一帧，发现浊音段为奇数，则此时到最后一帧为浊音段
+                if (i == len(ste) - 1) and (len(voiced_sound) % 2 == 1):  # 当到达最后一帧，发现浊音段为奇数，则此时到最后一帧为浊音段
                     if i - voiced_sound[-1] <= 2:  # 检测帧索引间隔，去掉间隔小于2的索引，判断该段为噪音
                         voiced_sound = voiced_sound[:-1]  # 该段不加入列表
                     else:  # 否则加入列表
@@ -504,34 +504,34 @@ class RhythmFeatures:
 
             leng = len(voiced_sound)
             if leng < 10:
-                zcr_threshold = zcr_threshold /2
-                n=n+1
+                energy_high = energy_high / 2
+                n = n + 1
             elif leng > 30:
-                zcr_threshold = zcr_threshold *2
-                n=n+1
+                energy_high = energy_high * 2
+                n = n + 1
             else:
                 loop_flag = False
-            if n>10 or oneLoop:
+            if n > 10 or oneLoop:
                 break
 
-        _print(pt, "能量高阈值:{}，浊音段:{}".format(zcr_threshold, voiced_sound))
+        _print(pt, "能量高阈值:{}，浊音段:{}".format(energy_high, voiced_sound))
         # 再通过能量低阈值energy_low在浊音段向两端进行搜索，超过energy_low便视为有效语音
         for j in range(len(voiced_sound)):  # 遍历浊音列表
             i_minus_flag = False  # i值减一标志位
             i = voiced_sound[j]  # 浊音部分帧索引
             if j % 2 == 1:  # 每段浊音部分的右边帧索引
-                while i < len(zcr) and ste[i] >= zcr_threshold:  # 搜索超过能量低阈值的帧索引
+                while i < len(ste) and ste[i] >= energy_low:  # 搜索超过能量低阈值的帧索引
                     i += 1  # 向右搜索
                 voiced_sound_added.append(i)  # 搜索到则加入扩充列表，右闭
             else:  # 每段浊音部分的左边帧索引
-                while i > 0 and zcr[i] >= zcr_threshold:  # 搜索超过能量低阈值的帧索引
+                while i > 0 and ste[i] >= energy_low:  # 搜索超过能量低阈值的帧索引
                     i -= 1  # 向左搜索
                     i_minus_flag = True  # i值减一标志位置位
                 if i_minus_flag:  # 搜索到则加入扩充列表，左闭
                     voiced_sound_added.append(i + 1)
                 else:
                     voiced_sound_added.append(i)
-        _print(pt, "能量低阈值:{}，浊音再次扩展后:{}".format(zcr_threshold, voiced_sound_added))
+        _print(pt, "能量低阈值:{}，浊音再次扩展后:{}".format(energy_low, voiced_sound_added))
         wave_detected = voiced_sound_added
         # '''
 
@@ -925,7 +925,8 @@ class QualityFeatures:
 class VAD:
     """语音端点检测"""
 
-    def __init__(self, wav_file, frame_len=400, min_interval=15, e_low_multifactor=1.0, zcr_multifactor=1.0, pt=True,oneLoop=False):
+    def __init__(self, wav_file, frame_len=400, min_interval=15, e_low_multifactor=1.0, zcr_multifactor=1.0, pt=True,
+                 oneLoop=False):
         """
         初始化函数
         语音信号是非平稳信号，但是可以认为10~30ms的时间范围内，语音信号是平稳信号,比如这里我取25ms作为一帧
@@ -946,7 +947,7 @@ class VAD:
         self.zcr = rf.zero_crossing_rate()  # 获取过零率
         # 获取端点检测后的有效语音段
         self.wav_dat_split_f, self.wav_dat_split, self.voiced_f, self.unvoiced_f = \
-            rf.activity_detect(min_interval, e_low_multifactor, zcr_multifactor, pt,oneLoop)
+            rf.activity_detect(min_interval, e_low_multifactor, zcr_multifactor, pt, oneLoop)
         self.wav_dat_split_t = []
         for d in self.wav_dat_split_f:
             res = d[1] - d[0]
@@ -969,7 +970,7 @@ class VAD:
                 i += 1
 
         # 语音首尾端点检测，中间不检测
-        if len(self.wav_dat_split_f)==0:
+        if len(self.wav_dat_split_f) == 0:
             pass
         elif len(self.wav_dat_split_f[-1]) > 1:  # 避免语音过短，只有一帧
             self.wav_dat_utterance = self.wave_data[self.wav_dat_split_f[0][0] * int(self.frame_len_samples):
